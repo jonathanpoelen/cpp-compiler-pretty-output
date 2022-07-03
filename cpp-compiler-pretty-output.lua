@@ -391,7 +391,7 @@ function parse_cli(defaults, arg)
 
 
   parser:flag'--version'
-    :action(function() print("0.0.1") os.exit(0) end)
+    :action(function() print("1.0.0") os.exit(0) end)
   parser
     :argument('cmd', 'Command used for formatting. Default is CPP_PRETTY_OUTPUT_CMD environment variable or a basic syntax highlighter.\n/!\\ Must be manually escaped.')
     :args'*'

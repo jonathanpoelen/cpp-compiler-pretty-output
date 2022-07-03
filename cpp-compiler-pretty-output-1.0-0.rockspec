@@ -1,8 +1,8 @@
 package = "xmllpegparser"
-version = "0.0-1"
+version = "1.0-0"
 source = {
   url = "git://github.com/jonathanpoelen/cpp-compiler-pretty-output",
-  tag = "v0.0.1"
+  tag = "v1.0.0"
 }
 description = {
   summary = "Highlight parts of the compiler output.",
