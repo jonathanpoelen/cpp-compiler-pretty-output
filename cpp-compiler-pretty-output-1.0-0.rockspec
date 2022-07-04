@@ -1,4 +1,4 @@
-package = "xmllpegparser"
+package = "cpp-compiler-pretty-output"
 version = "1.0-0"
 source = {
   url = "git://github.com/jonathanpoelen/cpp-compiler-pretty-output",
