@@ -208,6 +208,9 @@ local kw_colors = {
   keywordvalue=true,
   number=true,
   othersymbol=true,
+  parenthesis=true,
+  brace=true,
+  bracket=true,
   othertype=true,
   std=true,
   string=true,
@@ -275,7 +278,10 @@ function highlighter(colors)
   local hex = R('09','af','AF')
 
   local symbols = S'=<>!&|^~+-*/%'^1
-  local other_symbols = S'{}()[]:?.'^1
+  local other_symbols = S':?.'^1
+  local bracket       = S'[]'^1
+  local parent        = S'()'^1
+  local brace         = S'{}'^1
   local sep_symbols = S',;'
   local specialchar = P'\\x' * hex^2
                     + P'\\0' * R'07'^0
@@ -334,6 +340,9 @@ function highlighter(colors)
              + color('symseparator', sep_symbols)
              + color('number', number) -- contains .
              + color('othersymbol', other_symbols) -- contains .
+             + color('brace', brace)
+             + color('bracket', bracket)
+             + color('parenthesis', parent)
              + color('char', char)
              + color('string', string)
              + color('controlflow', control_flow * -noident)
@@ -550,8 +559,11 @@ if low_threshold or (args.highlighter_with_module and filter_type == 'module') t
   colors.keywordtype = colors.keywordtype or '38;5;75;3'
   colors.keywordvalue = colors.keywordvalue or '38;5;141'
   colors.number = colors.number or '38;5;179'
-  colors.othersymbol = colors.othersymbol or '38;5;231'
   colors.othertype = colors.othertype or '38;5;75'
+  colors.othersymbol = colors.othersymbol or '38;5;231'
+  colors.parenthesis = colors.parenthesis or colors.othersymbol
+  colors.bracket = colors.bracket or colors.othersymbol
+  colors.brace = colors.brace or colors.othersymbol
   colors.std = colors.std or '38;5;176'
   colors.symbol = colors.symbol or '38;5;44'
   colors.symseparator = colors.symseparator or '38;5;227'
