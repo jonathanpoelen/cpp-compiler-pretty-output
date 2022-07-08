@@ -1,4 +1,4 @@
-Highlight parts of the compiler output.
+Highlight output parts of C++ compilers.
 
 > clang++ test.cpp -fdiagnostics-color=always |& cpp-compiler-pretty-output.lua
 

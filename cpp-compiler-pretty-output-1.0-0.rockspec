@@ -5,8 +5,8 @@ source = {
   tag = "v1.0.0"
 }
 description = {
-  summary = "Highlight parts of the compiler output.",
-  detailed = "Allows you to apply a command or color the expressions displayed in the error, warning and note messages",
+  summary = "Highlight output parts of C++ compilers.",
+  detailed = "Allows you to apply a command or color the expressions displayed in the error, warning and note messages of C++ compilers.",
   homepage = "https://github.com/jonathanpoelen/cpp-compiler-pretty-output",
   license = "MIT"
 }
