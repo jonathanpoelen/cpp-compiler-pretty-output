@@ -254,8 +254,8 @@ end
 
 function highlighter(colors)
   local fns = {}
-  local color = function(k, patt)
-    local style = colors[k]
+  local compute_pattern = function(style, patt)
+    -- apply style on previous patterns
     if #style ~= 0 then
       local fn = fns[style]
       if not fn then
@@ -289,7 +289,8 @@ function highlighter(colors)
   local char = "'" * (specialchar + 1) * P"'"^-1
   local string = '"' * (Until(S'\\"') + (P'\\' * 1))^0 * P'"'^-1
   local int = '0x' * tocppint(hex) + tocppint(R'09')
-  local number = P'.'^-1 * int * (P'.'^-1 * int)^-1 * (S'eE' * int)^-1
+  local number = '0b' * tocppint(S'01')
+               + P'.'^-1 * int * (P'.'^-1 * int)^-1 * (S'eE' * int)^-1
   local ident = alpha^1 * (alnum^1 + '_')^0
   local noident = alnum + '_'
   local ws = S' \t'^1
@@ -335,28 +336,59 @@ function highlighter(colors)
   local type_suffix = P'_type' + '_t'
   local other_type = (alnum^1 + '_' - type_suffix)^1 * type_suffix
 
-  local patt = lpeg.Cs((ws
-             + color('symbol', symbols)
-             + color('symseparator', sep_symbols)
-             + color('number', number) -- contains .
-             + color('othersymbol', other_symbols) -- contains .
-             + color('brace', brace)
-             + color('bracket', bracket)
-             + color('parenthesis', parent)
-             + color('char', char)
-             + color('string', string)
-             + color('controlflow', control_flow * -noident)
-             + color('keywordvalue', kw_value * -noident)
-             + color('keyword', keywords * -noident)
-             + color('keywordtype', kw_type * -noident)
-             + color('type', type)
-             + color('othertype', other_type * -noident)
-             + color('std', P'std') * color('othersymbol', P'::') * color('std', ident)
-             + color('identifier', ident)
-             + 1
-             )^0)
+  local accu_patt = ws
 
-  return patt
+  local previous_style
+  local previous_patterns
+
+  local push_color = function(k, patt)
+    local style = colors[k]
+
+    if style == previous_style then
+      previous_patterns = previous_patterns + patt
+      return
+    end
+
+    accu_patt = accu_patt + compute_pattern(previous_style, previous_patterns)
+
+    previous_style = style
+    previous_patterns = patt
+  end
+
+  local std_color = colors['std']
+  local othersymbol_color = colors['othersymbol']
+
+  previous_style = colors['symbol']
+  previous_patterns = symbols
+  push_color('symseparator', sep_symbols)
+  push_color('number', number) -- contains .
+  push_color('othersymbol', other_symbols) -- contains .
+  push_color('parenthesis', parent)
+  push_color('brace', brace)
+  push_color('bracket', bracket)
+  push_color('char', char)
+  push_color('string', string)
+  push_color('controlflow', control_flow * -noident)
+  push_color('keywordvalue', kw_value * -noident)
+  push_color('keyword', keywords * -noident)
+  push_color('keywordtype', kw_type * -noident)
+  push_color('type', type)
+  push_color('othertype', other_type * -noident)
+  if othersymbol_color == std_color then
+    push_color('std', P'std::' * ident)
+    push_color('identifier', ident)
+    accu_patt = accu_patt
+              + compute_pattern(previous_style, previous_patterns)
+  else
+    accu_patt = accu_patt
+              + compute_pattern(previous_style, previous_patterns)
+              + compute_pattern(std_color, P'std')
+              * compute_pattern(othersymbol_color, P'::')
+              * compute_pattern(std_color, ident)
+              + compute_pattern(colors['identifier'], ident)
+  end
+
+  return lpeg.Cs((accu_patt + accu_patt + 1)^0)
 end
 
 
@@ -561,7 +593,7 @@ if low_threshold or (args.highlighter_with_module and filter_type == 'module') t
   colors.number = colors.number or '38;5;179'
   colors.othertype = colors.othertype or '38;5;75'
   colors.othersymbol = colors.othersymbol or '38;5;231'
-  colors.parenthesis = colors.parenthesis or colors.othersymbol
+  colors.parenthesis = colors.parenthesis or colors.parent or colors.othersymbol
   colors.bracket = colors.bracket or colors.othersymbol
   colors.brace = colors.brace or colors.othersymbol
   colors.std = colors.std or '38;5;176'

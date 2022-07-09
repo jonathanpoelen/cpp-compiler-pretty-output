@@ -258,6 +258,9 @@ highlight = highlighter({
   symbol='12',
   symseparator='13',
   type='14',
+  brace='15',
+  bracket='16',
+  parenthesis='17',
 })
 
 function eq_highlight(expected, result)
@@ -269,8 +272,9 @@ eq_highlight([[
 [2mif[m [3ma[m [4moperator[m [5mconst[m [6mfalse[m
 [7m123[m [7m1.1[m [7m.23[m
 [7m1'23e3[m [7m0x2'a3[m [7m031[m
-[9mvalue_type[m [10mstd[m[8m::[m[10mfloor[m[8m()[m
+[9mvalue_type[m [10mstd[m[8m::[m[10mfloor[m[17m()[m
 [11m"a\x1bb\032c"[m [12m=[m [13m,[m [14mchar[m
+[16m[[m[12m<[m[15m{}[m[12m>[m[16m][m
 ]],
    highlight:match[[
 'a' '\x1b' '\032' '\''
@@ -279,6 +283,7 @@ if a operator const false
 1'23e3 0x2'a3 031
 value_type std::floor()
 "a\x1bb\032c" = , char
+[<{}>]
 ]])
 
 print(tostring(total) .. ' tests ; ' .. tostring(count_error) .. ' failures')
