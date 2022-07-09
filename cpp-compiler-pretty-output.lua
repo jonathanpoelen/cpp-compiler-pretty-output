@@ -42,7 +42,7 @@ local function CUntil(patt)
 end
 
 
-function clang_formatter(write, format, expression_threshold, has_color)
+function clang_formatter(out, format, expression_threshold, has_color)
   local state_line;
   local state_color;
 
@@ -51,7 +51,7 @@ function clang_formatter(write, format, expression_threshold, has_color)
     local r2 = t2 and #t2 >= expression_threshold
 
     if not (r1 or r2) then
-      write(state_line)
+      out:write(state_line)
       return
     end
 
@@ -60,22 +60,22 @@ function clang_formatter(write, format, expression_threshold, has_color)
     local color = state_color and '\x1b[1m' or ''
 
     if r1 then
-      write(line:sub(0, p1-1))
-      write(reset)
+      out:write(line:sub(0, p1-1))
+      out:write(reset)
       format(t1)
-      write(color)
+      out:write(color)
       if not r2 then
-        write(line:sub(p1+#t1))
+        out:write(line:sub(p1+#t1))
         return
       end
-      write(line:sub(p1+#t1, p2-1))
+      out:write(line:sub(p1+#t1, p2-1))
     else -- if r2
-      write(line:sub(0, p2-1))
+      out:write(line:sub(0, p2-1))
     end
-    write(reset)
+    out:write(reset)
     format(t2)
-    write(color)
-    write(line:sub(p2+#t2))
+    out:write(color)
+    out:write(line:sub(p2+#t2))
   end
 
   -- test.cpp:3:21: error: bla bla ('{type1}' and '{type2}')
@@ -118,20 +118,20 @@ function clang_formatter(write, format, expression_threshold, has_color)
   end
 end
 
-local function consume_formatter(write, format, expression_threshold, create_pattern)
+local function consume_formatter(out, format, expression_threshold, create_pattern)
   local state_line
   local state_pos
 
   local reformat = function(p1, t, p2)
     if #t >= expression_threshold then
-      write(state_line:sub(state_pos, p1-1))
+      out:write(state_line:sub(state_pos, p1-1))
       format(t)
       state_pos = p2
     end
   end
 
   local patt = create_pattern(reformat) * (Cp / function()
-    write(state_line:sub(state_pos))
+    out:write(state_line:sub(state_pos))
   end)
 
   return function(line)
@@ -651,10 +651,6 @@ else
       has_color = line:byte() == '\x1b'
     end
 
-    function writter(s)
-      output:write(s)
-    end
-
     -- apply proccess_format or highlight
     if proccess_format ~= write_highlight and fallback_on_highlight then
       local old_proccess_format = proccess_format
@@ -669,7 +665,7 @@ else
       end
     end
 
-    local process = formatter(writter, proccess_format, expression_threshold, has_color)
+    local process = formatter(output, proccess_format, expression_threshold, has_color)
 
     repeat
       if #line < line_threshold or not process(line) then

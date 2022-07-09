@@ -168,15 +168,17 @@ eq_formatter(msvc_formatter, false, selector(msvc))
 function comp_format(output_comp, formatter, has_color)
   local t = {}
 
-  local write = function(s)
-    insert(t, s)
-  end
+  local output = {
+    write = function(_, s)
+      insert(t, s)
+    end
+  }
 
   local proc = function(s)
     insert(t, '{' .. s .. '}')
   end
 
-  local process = formatter(write, proc, 4, has_color)
+  local process = formatter(output, proc, 4, has_color)
   for line in output_comp:gmatch('[^\n]*\n') do
     process(line)
   end
