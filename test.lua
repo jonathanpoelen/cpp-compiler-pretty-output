@@ -164,7 +164,6 @@ eq_formatter(clang_formatter, true, selector(clang_color))
 eq_formatter(clang_formatter, false, selector(clang_nocolor))
 eq_formatter(msvc_formatter, false, selector(msvc))
 
-
 function comp_format(output_comp, formatter, has_color)
   local t = {}
 
@@ -178,7 +177,9 @@ function comp_format(output_comp, formatter, has_color)
     insert(t, '{' .. s .. '}')
   end
 
-  local process = formatter(output, proc, 4, has_color)
+  local translation = {error='error', warning='warning', note='note'}
+
+  local process = formatter(output, proc, 4, translation, has_color)
   for line in output_comp:gmatch('[^\n]*\n') do
     process(line)
   end

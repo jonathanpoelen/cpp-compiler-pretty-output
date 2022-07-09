@@ -42,7 +42,7 @@ local function CUntil(patt)
 end
 
 
-function clang_formatter(out, format, expression_threshold, has_color)
+function clang_formatter(out, format, expression_threshold, translation, has_color)
   local state_line;
   local state_color;
 
@@ -91,9 +91,12 @@ function clang_formatter(out, format, expression_threshold, has_color)
                   * CUntil(P"' for " + ("'" .. suffix))
                 )
 
-  local error = has_color and '\x1b[0;1;31merror: \x1b[0m' or ': error: '
-  local warn = has_color and '\x1b[0;1;35mwarning: \x1b[0m' or ': warning: '
-  local note = has_color and '\x1b[0;1;30mnote: \x1b[0m' or ': note: '
+  local error = has_color and '\x1b[0;1;31m' .. translation.error .. ': \x1b[0m'
+                           or ': ' .. translation.error .. ': '
+  local warn  = has_color and '\x1b[0;1;35m' .. translation.warning .. ': \x1b[0m'
+                           or ': ' .. translation.warning .. ': '
+  local note  = has_color and '\x1b[0;1;30m' .. translation.note .. ': \x1b[0m'
+                           or ': ' .. translation.note .. ': '
   local redefinition = P(error)
                      * ( P((has_color and '\x1b[1m' or '') .. "redefinition of '")
                        * Until"' with " * 7
@@ -141,7 +144,7 @@ local function consume_formatter(out, format, expression_threshold, create_patte
   end
 end
 
-function gcc_formatter(out, format, expression_threshold, has_color)
+function gcc_formatter(out, format, expression_threshold, translation, has_color)
   return consume_formatter(out, format, expression_threshold, function(reformat)
     -- test.cpp:4:12: error: no match for ‘operator+’ (operand type is ‘A<'a'>’)
     local patt
@@ -153,7 +156,10 @@ function gcc_formatter(out, format, expression_threshold, has_color)
       patt = CUntil'’'
     end
 
-    patt = Until(P'error: ' + 'note: ' + 'warning: ') * 9
+    patt = Until(P(translation.error .. ': ')
+                + (translation.note .. ': ')
+                + (translation.warning .. ': ')
+                ) * 9
          * (After'‘' * Cp * patt * Cp / reformat)^1
 
     if has_color then
@@ -199,6 +205,30 @@ function select_formatter(line)
 end
 
 
+function parse_key_value(str, kargs, err_name)
+  local table_result = {}
+  local errors = {}
+
+  local patt = (C(Until'=') * 1 * C(Until0',') / function(name, value)
+    if kargs[name] then
+      table_result[name] = value
+    else
+      insert(errors, name)
+    end
+  end * P','^-1)^0 * Cp
+
+  local pos = patt:match(str)
+  if pos ~= #str + 1 then
+    return nil, 'Invalid format at index ' .. tostring(pos)
+  end
+
+  if #errors ~= 0 then
+    return nil, 'Unknown ' .. err_name .. ': ' .. table.concat(errors, ', ')
+  end
+
+  return table_result
+end
+
 local kw_colors = {
   char=true,
   controlflow=true,
@@ -220,27 +250,11 @@ local kw_colors = {
 }
 
 function parse_colors(str)
-  local colors = {}
-  local errors = {}
+  return parse_key_value(str, kw_colors, 'color')
+end
 
-  local patt = (C(Until'=') * 1 * C(Until0',') / function(name, style)
-    if kw_colors[name] then
-      colors[name] = style
-    else
-      insert(errors, name)
-    end
-  end * P','^-1)^0 * Cp
-
-  local pos = patt:match(str)
-  if pos ~= #str + 1 then
-    return nil, 'Invalid format at index ' .. tostring(pos)
-  end
-
-  if #errors ~= 0 then
-    return nil, 'Unknown color: ' .. table.concat(errors, ', ')
-  end
-
-  return colors
+function parse_translation(str)
+  return parse_key_value(str, {note=true, error=true, warning=true}, 'color')
 end
 
 function colors_list()
@@ -519,6 +533,10 @@ name are
     :flag('-N --disable-highlight-when-not-processed', 'opposite of -n')
     :target'highlight_when_not_processed'
     :action'store_false'
+  parser
+    :option('-t --translation', 'translation for error, warning and note. Format is word=newword,...')
+    :argname'<translation>'
+    :convert(parse_translation)
 
   return parser:parse(arg)
 end
@@ -638,6 +656,7 @@ if is_highlight then
   end
 else
   if line then
+    -- get formatter
     local formatter, has_color
     if args.input_type == 'auto' then
       formatter, has_color = select_formatter(line)
@@ -665,7 +684,15 @@ else
       end
     end
 
-    local process = formatter(output, proccess_format, expression_threshold, has_color)
+    local translation = args.translation or {}
+    translation = {
+      note = translation.note or 'note',
+      error = translation.error or 'error',
+      warning = translation.warning or 'warning',
+    }
+
+    local process = formatter(output, proccess_format, expression_threshold,
+                              translation, has_color)
 
     repeat
       if #line < line_threshold or not process(line) then
