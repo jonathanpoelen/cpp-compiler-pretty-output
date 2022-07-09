@@ -600,24 +600,45 @@ local prefix = args.prefix
 local suffix = args.suffix
 
 if low_threshold or (args.highlighter_with_module and filter_type == 'module') then
-  local colors = args.filter_colors or os.getenv'CPP_PRETTY_OUTPUT_COLORS' or {}
-  colors.string = colors.string or '38;5;114'
-  colors.char = colors.char or colors.string
-  colors.controlflow = colors.controlflow or '38;5;215;1'
-  colors.identifier = colors.identifier or '38;5;149'
-  colors.keyword = colors.keyword or '38;5;203'
-  colors.keywordtype = colors.keywordtype or '38;5;75;3'
-  colors.keywordvalue = colors.keywordvalue or '38;5;141'
-  colors.number = colors.number or '38;5;179'
-  colors.othertype = colors.othertype or '38;5;75'
-  colors.othersymbol = colors.othersymbol or '38;5;231'
-  colors.parenthesis = colors.parenthesis or colors.parent or colors.othersymbol
-  colors.bracket = colors.bracket or colors.othersymbol
-  colors.brace = colors.brace or colors.othersymbol
-  colors.std = colors.std or '38;5;176'
-  colors.symbol = colors.symbol or '38;5;44'
-  colors.symseparator = colors.symseparator or '38;5;227'
-  colors.type = colors.type or '38;5;81'
+  local colors = args.filter_colors
+
+  -- parse environment variable or error
+  if not colors then
+    local str_colors = os.getenv'CPP_PRETTY_OUTPUT_COLORS'
+    if str_colors then
+      local parsed_colors, msg_error = parse_colors(str_colors)
+      if parsed_colors then
+        colors = parsed_colors
+      else
+        io.stderr:write('CPP_PRETTY_OUTPUT_COLORS environment variable: '
+                      .. msg_error .. '\n')
+        os.exit(1)
+      end
+    end
+  end
+
+  -- init colors
+  colors = colors or {}
+  colors = {
+    string = colors.string or '38;5;114',
+    char = colors.char or colors.string or '38;5;114',
+    controlflow = colors.controlflow or '38;5;215;1',
+    identifier = colors.identifier or '38;5;149',
+    keyword = colors.keyword or '38;5;203',
+    keywordtype = colors.keywordtype or '38;5;75;3',
+    keywordvalue = colors.keywordvalue or '38;5;141',
+    number = colors.number or '38;5;179',
+    othertype = colors.othertype or '38;5;75',
+    othersymbol = colors.othersymbol or '38;5;231',
+    parenthesis = colors.parenthesis or colors.parent or colors.othersymbol or '38;5;231',
+    bracket = colors.bracket or colors.othersymbol or '38;5;231',
+    brace = colors.brace or colors.othersymbol or '38;5;231',
+    std = colors.std or '38;5;176',
+    symbol = colors.symbol or '38;5;44',
+    symseparator = colors.symseparator or '38;5;227',
+    type = colors.type or '38;5;81',
+  }
+
   highlight = highlighter(colors)
   write_highlight = function(str)
     output:write(highlight:match(str))
