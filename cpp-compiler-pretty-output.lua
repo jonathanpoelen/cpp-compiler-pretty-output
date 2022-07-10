@@ -511,8 +511,8 @@ Note: CPP_PRETTY_OUTPUT_FORCE_HIGHLIGH=1 variable environment force -f highlight
     :target'filter'
     :action(function(args) args.filter = 'highlight' end)
   parser
-    :option('-I --input-type')
-    :choices{'auto', 'gcc', 'clang', 'msvc'}
+    :option('-I --input-type', 'compiler formatter are auto, gcc, gcc-color, clang, clang-color and msvc')
+    :choices{'auto', 'gcc', 'gcc-color', 'clang', 'clang-color', 'msvc'}
     :argname'<TYPE>'
     :default(defaults.input_type)
   parser
@@ -686,9 +686,11 @@ else
         gcc=gcc_formatter,
         msvc=msvc_formatter,
         clang=clang_formatter,
+        ['gcc-color']=gcc_formatter,
+        ['clang-color']=clang_formatter,
       }
-      formatter = formatters[filter_type]
-      has_color = line:byte() == '\x1b'
+      formatter = formatters[args.input_type]
+      has_color = args.input_type:byte(-1) == 0x72 -- r
     end
 
     -- apply proccess_format or highlight
