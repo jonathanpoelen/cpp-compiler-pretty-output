@@ -43,10 +43,11 @@ end
 
 
 function clang_formatter(out, format, expression_threshold, translation, has_color)
-  local state_line;
-  local state_color;
+  local state_line
+  local state_note
+  local state_color
 
-  local reformat = function(p1, t1, p2, t2)
+  local reformat_impl = function(p1, t1, ot1, p2, t2, ot2)
     local r1 = #t1 >= expression_threshold
     local r2 = t2 and #t2 >= expression_threshold
 
@@ -60,28 +61,46 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
     local color = state_color and '\x1b[1m' or ''
 
     if r1 then
-      out:write(line:sub(0, p1-1))
-      out:write(reset)
+      out:write(line:sub(0, p1-1), reset)
       format(t1)
-      out:write(color)
       if not r2 then
-        out:write(line:sub(p1+#t1))
+        out:write(color, line:sub(p1+#t1))
         return
       end
-      out:write(line:sub(p1+#t1, p2-1))
+      out:write(color, line:sub(p1+#t1, p2-1), reset)
     else -- if r2
-      out:write(line:sub(0, p2-1))
+      out:write(line:sub(0, p2-1), reset)
     end
-    out:write(reset)
     format(t2)
-    out:write(color)
-    out:write(line:sub(p2+#t2))
+    out:write(color, line:sub(p2+#t2))
+  end
+
+  local reformat = function(p1, t1, p2, t2)
+    reformat_impl(p1, t1, t1, p2, t2, t2)
+  end
+
+  local diffreplacement = function(s)
+    return #s ~= 4 --[[ \e[0m ]] and '/*{*/' or '/*}*/'
+  end
+
+  local reformat2 = function(p1, t1, p2, t2)
+    local ot1 = t1
+    local ot2 = t2
+
+    -- remove color in
+    -- ... no known conversion from 'Type<[...], xxx>' to 'Type<[...], yyy>'
+    t1 = t1:gsub('\x1b%[[^m]*m', diffreplacement, 2)
+    t2 = t2:gsub('\x1b%[[^m]*m', diffreplacement, 2)
+
+    state_color = false
+    reformat_impl(p1, t1, ot1, p2, t2, ot2)
   end
 
   -- test.cpp:3:21: error: bla bla ('{type1}' and '{type2}')
   -- test.cpp:3:21: error: bla bla '{type1}' (to|vs) '{type2}'
   -- test.cpp:3:12: error: bla bla '{type1}' to unary expression
   -- test.cpp:6:14: error: redefinition of 'ident' with a different type: '{type1}' vs '{type2}'
+  -- test.cpp:6:14: note: in instantiation of template class '{type}' requested here
   -- /!\ with {type} = A<'a'> => '{type}' => 'A<'a'>'
   local suffix = has_color and "\x1b[0m\n" or "\n"
   local type1 = P"('" * Cp * CAfter"' and '" * Cp * CUntil("')" .. suffix)
@@ -90,32 +109,47 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
                 + ( P"' to '" + P"' vs '") * Cp
                   * CUntil(P"' for " + ("'" .. suffix))
                 )
+  local typeA = Cp * CAfter"' " * After'\n'
+  local typeB = Cp * CAfter"' to '" * Cp * CAfter"' " * After'\n'
 
-  local error = has_color and '\x1b[0;1;31m' .. translation.error .. ': \x1b[0m'
-                           or ': ' .. translation.error .. ': '
-  local warn  = has_color and '\x1b[0;1;35m' .. translation.warning .. ': \x1b[0m'
-                           or ': ' .. translation.warning .. ': '
-  local note  = has_color and '\x1b[0;1;30m' .. translation.note .. ': \x1b[0m'
-                           or ': ' .. translation.note .. ': '
+  local error = has_color and '\x1b[0;1;31merror: \x1b[0m' or ': error: '
+  local warn  = has_color and '\x1b[0;1;35mwarning: \x1b[0m' or ': warning: '
+  local note  = P(has_color and '\x1b[0;1;30mnote: \x1b[0m' or ': note: ')
   local redefinition = P(error)
                      * ( P((has_color and '\x1b[1m' or '') .. "redefinition of '")
                        * Until"' with " * 7
-                       )^-1
+                       )
 
-  local set_nocolor = function() state_color = false end
-  local candidate_ctor = (has_color and P(note) / set_nocolor or P(note))
-                       * P'candidate constructor ('^-1
+  local set_note = function()
+    state_color = false
+    state_note = true
+  end
+  local patt_note = (has_color and note / set_note or note)
+                  * ( P'in instantiation of ' * After"'" * typeA / reformat
+                    + P'candidate constructor ('^-1 * Until(S"'(") * type2 / reformat
+                    )
+  if has_color then
+    patt_note = note * 'candidate constructor not viable: no known conversion from \''
+                     * typeB / reformat2
+              + patt_note
+  end
 
-  local patt = Until(P(note) + warn + error)
-             * (candidate_ctor + redefinition + #warn)
-             * Until(S"'(") * ((type1 + type2) / reformat)
+  local patt = Until(note + warn + error)
+             * ( patt_note
+               + redefinition * Until(S"'(") * type2 / reformat
+               + #warn * Until(S"'(") * ((type1 + type2) / reformat)
+               )
 
   if has_color then
-    patt = P'\x1b' * patt
+    -- colored line without ^
+    patt = P'\x1b' * -P'[0;1;32m' * patt
+  else
+    patt = -P' ' * patt
   end
 
   return function(line)
     state_line = line
+    state_note = false
     state_color = has_color
     return patt:match(line)
   end
@@ -231,6 +265,7 @@ end
 
 local kw_colors = {
   char=true,
+  comment=true,
   controlflow=true,
   identifier=true,
   keyword=true,
@@ -291,7 +326,7 @@ function highlighter(colors)
   local alnum = R('az','AZ','09')
   local hex = R('09','af','AF')
 
-  local symbols = S'=<>!&|^~+-*/%'^1
+  local symbols = (S'=<>!&|^~+-*%' + P'/' * -S'/*')^1
   local other_symbols = S':?.'^1
   local bracket       = S'[]'^1
   local parent        = S'()'^1
@@ -305,6 +340,8 @@ function highlighter(colors)
   local int = '0x' * tocppint(hex) + tocppint(R'09')
   local number = '0b' * tocppint(S'01')
                + P'.'^-1 * int * (P'.'^-1 * int)^-1 * (S'eE' * int)^-1
+  local comment = P'/*' * Until0'*/' * P(2)^-1
+                + P'//' * Until0'\n'
   local ident = alpha^1 * (alnum^1 + '_')^0
   local noident = alnum + '_'
   local ws = S' \t'^1
@@ -372,8 +409,9 @@ function highlighter(colors)
   local std_color = colors['std']
   local othersymbol_color = colors['othersymbol']
 
-  previous_style = colors['symbol']
-  previous_patterns = symbols
+  previous_style = colors['comment']
+  previous_patterns = comment
+  push_color('symbol', symbols)
   push_color('symseparator', sep_symbols)
   push_color('number', number) -- contains .
   push_color('othersymbol', other_symbols) -- contains .
@@ -620,8 +658,8 @@ if low_threshold or (args.highlighter_with_module and filter_type == 'module') t
   -- init colors
   colors = colors or {}
   colors = {
-    string = colors.string or '38;5;114',
     char = colors.char or colors.string or '38;5;114',
+    comment = colors.controlflow or '38;5;241',
     controlflow = colors.controlflow or '38;5;215;1',
     identifier = colors.identifier or '38;5;149',
     keyword = colors.keyword or '38;5;203',
@@ -634,6 +672,7 @@ if low_threshold or (args.highlighter_with_module and filter_type == 'module') t
     bracket = colors.bracket or colors.othersymbol or '38;5;231',
     brace = colors.brace or colors.othersymbol or '38;5;231',
     std = colors.std or '38;5;176',
+    string = colors.string or '38;5;114',
     symbol = colors.symbol or '38;5;44',
     symseparator = colors.symseparator or '38;5;227',
     type = colors.type or '38;5;81',

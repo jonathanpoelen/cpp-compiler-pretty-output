@@ -101,6 +101,9 @@ void foo(int){}
 \e[0m\e[1mtest.cpp:6:21: \e[0m\e[0;1;31merror: \e[0m\e[1minvalid operands to binary expression ('const char [1]' and 'const char [1]')\e[0m
                     + "")
 \e[0;1;32m                    ^ ~~
+\e[0m\e[1mtest.cpp:1:6: \e[0m\e[0;1;30mnote: \e[0min instantiation of template class 'xx::yy<int>' requested here
+    static_assert(mytype<int>);
+\e[0;1;32m                          ^
 \e[0m5 errors generated.
 ]]
 
@@ -168,8 +171,9 @@ function comp_format(output_comp, formatter, has_color)
   local t = {}
 
   local output = {
-    write = function(_, s)
-      insert(t, s)
+    write = function(_, ...)
+      local t2 = {...}
+      table.move(t2, 1, #t2, #t+1, t)
     end
   }
 
@@ -207,6 +211,7 @@ clang_result = convert_esc[[
 \e[0m\e[1mtest.cpp:1:6: \e[0m\e[0;1;30mnote: \e[0mcandidate function not viable: no known conversion from '{A<'a'>}' to 'int' for 1st argument\e[0m
 \e[0m\e[1mtest.cpp:5:14: \e[0m\e[0;1;31merror: \e[0m\e[1mredefinition of 'a' with a different type: '\e[m{const char *}\e[1m' vs '\e[m{A<'a'>}\e[1m'\e[0m
 \e[0m\e[1mtest.cpp:6:21: \e[0m\e[0;1;31merror: \e[0m\e[1minvalid operands to binary expression ('\e[m{const char [1]}\e[1m' and '\e[m{const char [1]}\e[1m')\e[0m
+\e[0m\e[1mtest.cpp:1:6: \e[0m\e[0;1;30mnote: \e[0min instantiation of template class '{xx::yy<int>}' requested here
 ]]
 eq(comp_format(clang_color, clang_formatter, true), clang_result)
 eq(comp_format(clang_nocolor, clang_formatter, false), remove_color(clang_result))
@@ -264,6 +269,7 @@ highlight = highlighter({
   brace='15',
   bracket='16',
   parenthesis='17',
+  comment='18',
 })
 
 function eq_highlight(expected, result)
@@ -278,7 +284,10 @@ eq_highlight([[
 [9mvalue_type[m [10mstd[m[8m::[m[10mfloor[m[17m()[m
 [11m"a\x1bb\032c"[m [12m=[m [13m,[m [14mchar[m
 [16m[[m[12m<[m[15m{}[m[12m>[m[16m][m
-]],
+[18m// a[m
+[3ma[m [18m/* xxx
+yyy */[m [3ma[m [18m/* b
+[m]],
    highlight:match[[
 'a' '\x1b' '\032' '\''
 if a operator const false
@@ -287,6 +296,9 @@ if a operator const false
 value_type std::floor()
 "a\x1bb\032c" = , char
 [<{}>]
+// a
+a /* xxx
+yyy */ a /* b
 ]])
 
 print(tostring(total) .. ' tests ; ' .. tostring(count_error) .. ' failures')
