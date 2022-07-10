@@ -192,6 +192,7 @@ function comp_format(output_comp, formatter, has_color)
 end
 
 gcc_result = convert_esc[[
+\e[00;37m\e[Ktest.cpp:\e[m\e[K In function ‘{int main()}’:
 \e[00;37m\e[Ktest.cpp:4:13:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kconversion from ‘\e[00;32m\e[Kint\e[m\e[K’ to non-scalar type ‘{A<'a'>}’ requested
 \e[00;37m\e[Ktest.cpp:4:16:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kno match for ‘{operator+}’ (operand type is ‘{A<'a'>}’)
 \e[00;37m\e[Ktest.cpp:4:24:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kcannot convert ‘{A<'a'>}’ to ‘\e[00;32m\e[Kint\e[m\e[K’

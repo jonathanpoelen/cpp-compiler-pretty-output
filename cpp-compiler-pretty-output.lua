@@ -181,6 +181,9 @@ end
 function gcc_formatter(out, format, expression_threshold, translation, has_color)
   return consume_formatter(out, format, expression_threshold, function(reformat)
     -- test.cpp:4:12: error: no match for ‘operator+’ (operand type is ‘A<'a'>’)
+    -- test.cpp:4:12: note: ‘{type1}’ is not usable as a {type2} function because:
+    -- test.hpp: In instantiation of ‘{type}’:
+    -- test.hpp:66:124:   required from ‘{type}’
     local patt
     if has_color then
       local k = P'\x1b[K'^-1
@@ -190,17 +193,9 @@ function gcc_formatter(out, format, expression_threshold, translation, has_color
       patt = CUntil'’'
     end
 
-    patt = Until(P(translation.error .. ': ')
-                + (translation.note .. ': ')
-                + (translation.warning .. ': ')
-                ) * 9
-         * (After'‘' * Cp * patt * Cp / reformat)^1
+    local expr = After'‘' * Cp * patt * Cp / reformat
 
-    if has_color then
-      return P'\x1b' * patt
-    end
-
-    return patt
+    return -P' ' * expr^1
   end)
 end
 
