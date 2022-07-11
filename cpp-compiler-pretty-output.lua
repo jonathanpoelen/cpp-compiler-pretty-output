@@ -600,10 +600,9 @@ Note: CPP_PRETTY_OUTPUT_FORCE_HIGHLIGH=1 variable environment force -f highlight
     :target'filter'
     :action(function(args) args.filter = 'highlight' end)
   parser
-    :option('-I --input-type', 'compiler formatter are auto, gcc, gcc-color, clang, clang-color and msvc')
+    :option('-I --input-type', 'compiler formatter are auto, gcc, gcc-color, clang, clang-color and msvc\nDefault value is CPP_PRETTY_OUTPUT_INPUT_TYPE or auto')
     :choices{'auto', 'gcc', 'gcc-color', 'clang', 'clang-color', 'msvc'}
     :argname'<TYPE>'
-    :default(defaults.input_type)
   parser
     :option('-F --filter-colors', [[
 ANSI styles for basic C++ highlighter.
@@ -659,13 +658,11 @@ function normalize_args(args)
   end
 end
 
-
 args = {
   char='─',
   color='38;5;238',
   input=io.input(),
   output=io.output(),
-  input_type='auto',
   highlighter_with_module=true,
 }
 if #arg > 0 then
@@ -779,20 +776,34 @@ if is_highlight then
   end
 else
   if line then
+    local formatters = {
+      gcc=gcc_formatter,
+      msvc=msvc_formatter,
+      clang=clang_formatter,
+      ['gcc-color']=gcc_formatter,
+      ['clang-color']=clang_formatter,
+    }
+
+    -- init input_type
+    local input_type = os.getenv'CPP_PRETTY_OUTPUT_INPUT_TYPE'
+    if input_type and input_type ~= '' then
+      if not formatters[input_type] then
+        io.stderr:write("CPP_PRETTY_OUTPUT_INPUT_TYPE environment variable: Unknown value: '"
+                      .. input_type
+                      .. "'. Must be one of 'auto', 'gcc', 'gcc-color', 'clang', 'clang-color', 'msvc'\n")
+        os.exit(1)
+      end
+    else
+      input_type = args.input_type or 'auto'
+    end
+
     -- get formatter
     local formatter, has_color
-    if args.input_type == 'auto' then
+    if input_type == 'auto' then
       formatter, has_color = select_formatter(line)
     else
-      local formatters = {
-        gcc=gcc_formatter,
-        msvc=msvc_formatter,
-        clang=clang_formatter,
-        ['gcc-color']=gcc_formatter,
-        ['clang-color']=clang_formatter,
-      }
-      formatter = formatters[args.input_type]
-      has_color = args.input_type:byte(-1) == 0x72 -- r
+      formatter = formatters[input_type]
+      has_color = input_type:byte(-1) == 0x72 -- r
     end
 
     local reformat
