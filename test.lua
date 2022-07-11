@@ -158,9 +158,13 @@ assert(gcc_nocolor ~= gcc_color)
 
 
 function selector(output)
-  return select_formatter(output:gsub('\n.*', '\n'))
+  return select_formatter(output:gsub('\n.*', '\n', 1))
 end
 
+eq_formatter(nil, nil, select_formatter('In file included from zip.cpp:1:\n'))
+eq_formatter(nil, nil, select_formatter('In file included from test/test_context.hpp:4,\n'))
+eq_formatter(nil, nil, select_formatter('                 from test/include/test.hpp:5,\n'))
+eq_formatter(gcc_formatter, true, select_formatter('test.hpp: In instantiation of ‘\x1b[00;32m\x1b[Kint’:'))
 eq_formatter(gcc_formatter, true, selector(gcc_color))
 eq_formatter(gcc_formatter, false, selector(gcc_nocolor))
 eq_formatter(clang_formatter, true, selector(clang_color))

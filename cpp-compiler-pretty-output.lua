@@ -246,30 +246,37 @@ function msvc_formatter(out, format, expression_threshold, translation)
   end)
 end
 
+local _select_patt_cache
 function select_formatter(line)
-  local is_gcc = line:find('‘', 0, true)
-
-  -- with ANSI color
-  if line:byte() == 0x1b then
-    if is_gcc then
-      return gcc_formatter, true
-    end
-    return clang_formatter, true
+  local gcc_pos = line:find('‘', 0, true)
+  if gcc_pos then
+    return gcc_formatter, (line:byte(gcc_pos+3) == 0x1b)
   end
 
-  if is_gcc then
-    return gcc_formatter, false
+  if not _select_patt_cache then
+    -- test.cpp(4): (msvc)
+    -- or
+    -- test.cpp:4:9: (clang)
+    local digits = R'09'^1
+    _select_patt_cache = Until( '(' * digits * '): '
+                              + ':' * digits * ':' * digits * ': '
+                              )
+                              * ( P'(' * Cc(1)
+                                + P':' * Cc(2)
+                                )
   end
 
-  -- test.cpp(4): (msvc)
-  -- or
-  -- test.cpp:4:9: (clang)
-  local c = (Until(S':(') * C(1)):match(line)
-  if c == ':' then
-    return clang_formatter, false
+  local x = _select_patt_cache:match(line)
+
+  if x == 2 then
+    return clang_formatter, (line:byte() == 0x1b)
   end
 
-  return msvc_formatter, false
+  if x == 1 then
+    return msvc_formatter, false
+  end
+
+  return nil, nil
 end
 
 
@@ -800,7 +807,18 @@ else
     -- get formatter
     local formatter, has_color
     if input_type == 'auto' then
-      formatter, has_color = select_formatter(line)
+      while true do
+        formatter, has_color = select_formatter(line)
+        if formatter then
+          break
+        end
+        -- formatter not found, display the current line and read the next one
+        output:write(line)
+        line = input:read'L'
+        if not line then
+          return 0
+        end
+      end
     else
       formatter = formatters[input_type]
       has_color = input_type:byte(-1) == 0x72 -- r
