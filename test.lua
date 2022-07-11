@@ -177,8 +177,9 @@ function comp_format(output_comp, formatter, has_color)
     end
   }
 
-  local proc = function(s)
-    insert(t, '{' .. s .. '}')
+  local state_cat
+  local proc = function(s, cat)
+    insert(t, tostring(cat) .. '{' .. s .. '}')
   end
 
   local translation = {error='error', warning='warning', note='note'}
@@ -192,64 +193,72 @@ function comp_format(output_comp, formatter, has_color)
 end
 
 gcc_result = convert_esc[[
-\e[00;37m\e[Ktest.cpp:\e[m\e[K In function ‘{int main()}’:
-\e[00;37m\e[Ktest.cpp:4:13:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kconversion from ‘\e[00;32m\e[Kint\e[m\e[K’ to non-scalar type ‘{A<'a'>}’ requested
-\e[00;37m\e[Ktest.cpp:4:16:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kno match for ‘{operator+}’ (operand type is ‘{A<'a'>}’)
-\e[00;37m\e[Ktest.cpp:4:24:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kcannot convert ‘{A<'a'>}’ to ‘\e[00;32m\e[Kint\e[m\e[K’
-\e[00;37m\e[Ktest.cpp:1:10:\e[m\e[K \e[01;36m\e[Knote: \e[m\e[K  initializing argument 1 of ‘{void foo(int)}’
-\e[00;37m\e[Ktest.cpp:5:14:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kconflicting declaration ‘{const char* a}’
-\e[00;37m\e[Ktest.cpp:4:9:\e[m\e[K \e[01;36m\e[Knote: \e[m\e[Kprevious declaration as ‘{A<'a'> a}’
-\e[00;37m\e[Ktest.cpp:6:21:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kinvalid operands of types ‘{const char [1]}’ and ‘{const char [1]}’ to binary ‘{operator+}’
+\e[00;37m\e[Ktest.cpp:\e[m\e[K In function ‘4{int main()}’:
+\e[00;37m\e[Ktest.cpp:4:13:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kconversion from ‘\e[00;32m\e[Kint\e[m\e[K’ to non-scalar type ‘1{A<'a'>}’ requested
+\e[00;37m\e[Ktest.cpp:4:16:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kno match for ‘1{operator+}’ (operand type is ‘1{A<'a'>}’)
+\e[00;37m\e[Ktest.cpp:4:24:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kcannot convert ‘1{A<'a'>}’ to ‘\e[00;32m\e[Kint\e[m\e[K’
+\e[00;37m\e[Ktest.cpp:1:10:\e[m\e[K \e[01;36m\e[Knote: \e[m\e[K  initializing argument 1 of ‘3{void foo(int)}’
+\e[00;37m\e[Ktest.cpp:5:14:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kconflicting declaration ‘1{const char* a}’
+\e[00;37m\e[Ktest.cpp:4:9:\e[m\e[K \e[01;36m\e[Knote: \e[m\e[Kprevious declaration as ‘3{A<'a'> a}’
+\e[00;37m\e[Ktest.cpp:6:21:\e[m\e[K \e[01;31m\e[Kerror: \e[m\e[Kinvalid operands of types ‘1{const char [1]}’ and ‘1{const char [1]}’ to binary ‘1{operator+}’
 ]]
 eq(comp_format(gcc_color, gcc_formatter, true), gcc_result)
 eq(comp_format(gcc_nocolor, gcc_formatter, false), remove_color(gcc_result))
 
 clang_result = convert_esc[[
-\e[1mtest.cpp:4:9: \e[0m\e[0;1;31merror: \e[0m\e[1mno viable conversion from 'int' to '\e[m{A<'a'>}\e[1m'\e[0m
-\e[0m\e[1mtest.cpp:2:22: \e[0m\e[0;1;30mnote: \e[0mcandidate constructor (the implicit copy constructor) not viable: no known conversion from 'int' to '{const A<'a'> &}' for 1st argument\e[0m
-\e[0m\e[1mtest.cpp:2:22: \e[0m\e[0;1;30mnote: \e[0mcandidate constructor (the implicit move constructor) not viable: no known conversion from 'int' to '{A<'a'> &&}' for 1st argument\e[0m
-\e[0m\e[1mtest.cpp:4:16: \e[0m\e[0;1;31merror: \e[0m\e[1minvalid argument type '\e[m{A<'a'>}\e[1m' to unary expression\e[0m
-\e[0m\e[1mtest.cpp:1:6: \e[0m\e[0;1;30mnote: \e[0mcandidate function not viable: no known conversion from '{A<'a'>}' to 'int' for 1st argument\e[0m
-\e[0m\e[1mtest.cpp:5:14: \e[0m\e[0;1;31merror: \e[0m\e[1mredefinition of 'a' with a different type: '\e[m{const char *}\e[1m' vs '\e[m{A<'a'>}\e[1m'\e[0m
-\e[0m\e[1mtest.cpp:6:21: \e[0m\e[0;1;31merror: \e[0m\e[1minvalid operands to binary expression ('\e[m{const char [1]}\e[1m' and '\e[m{const char [1]}\e[1m')\e[0m
-\e[0m\e[1mtest.cpp:1:6: \e[0m\e[0;1;30mnote: \e[0min instantiation of template class '{xx::yy<int>}' requested here
+\e[1mtest.cpp:4:9: \e[0m\e[0;1;31merror: \e[0m\e[1mno viable conversion from 'int' to '\e[m1{A<'a'>}\e[1m'\e[0m
+\e[0m\e[1mtest.cpp:2:22: \e[0m\e[0;1;30mnote: \e[0mcandidate constructor (the implicit copy constructor) not viable: no known conversion from 'int' to '3{const A<'a'> &}' for 1st argument\e[0m
+\e[0m\e[1mtest.cpp:2:22: \e[0m\e[0;1;30mnote: \e[0mcandidate constructor (the implicit move constructor) not viable: no known conversion from 'int' to '3{A<'a'> &&}' for 1st argument\e[0m
+\e[0m\e[1mtest.cpp:4:16: \e[0m\e[0;1;31merror: \e[0m\e[1minvalid argument type '\e[m1{A<'a'>}\e[1m' to unary expression\e[0m
+\e[0m\e[1mtest.cpp:1:6: \e[0m\e[0;1;30mnote: \e[0mcandidate function not viable: no known conversion from '3{A<'a'>}' to 'int' for 1st argument\e[0m
+\e[0m\e[1mtest.cpp:5:14: \e[0m\e[0;1;31merror: \e[0m\e[1mredefinition of 'a' with a different type: '\e[m1{const char *}\e[1m' vs '\e[m1{A<'a'>}\e[1m'\e[0m
+\e[0m\e[1mtest.cpp:6:21: \e[0m\e[0;1;31merror: \e[0m\e[1minvalid operands to binary expression ('\e[m1{const char [1]}\e[1m' and '\e[m1{const char [1]}\e[1m')\e[0m
+\e[0m\e[1mtest.cpp:1:6: \e[0m\e[0;1;30mnote: \e[0min instantiation of template class '3{xx::yy<int>}' requested here
 ]]
 eq(comp_format(clang_color, clang_formatter, true), clang_result)
 eq(comp_format(clang_nocolor, clang_formatter, false), remove_color(clang_result))
 
 msvc_result = [[
-test.cpp(4): error C2440: '{initializing}': cannot convert from 'int' to '{A<97>}'
-test.cpp(4): error C2675: unary '+': '{A<97>}' does not define this operator or a conversion to a type acceptable to the predefined operator
+test.cpp(4): error C2440: 'initializing': cannot convert from 'int' to '1{A<97>}'
+test.cpp(4): error C2675: unary '+': '1{A<97>}' does not define this operator or a conversion to a type acceptable to the predefined operator
 test.cpp(4): error C2088: '+': illegal for class
-test.cpp(4): error C2664: '{void foo(int)}': cannot convert argument 1 from '{A<97>}' to 'int'
+test.cpp(4): error C2664: '1{void foo(int)}': cannot convert argument 1 from '1{A<97>}' to 'int'
 test.cpp(1): note: see declaration of 'foo'
-test.cpp(5): error C2040: 'a': '{const char *}' differs in levels of indirection from '{A<97>}'
+test.cpp(5): error C2040: 'a': '1{const char *}' differs in levels of indirection from '1{A<97>}'
 test.cpp(6): error C2110: '+': cannot add two pointers
 ]]
 eq(comp_format(msvc, msvc_formatter, false), msvc_result)
 
 
-function eq_colors(expected_colors, expected_error, colors, error)
-  if colors then
+function eq_parse(expected, expected_error, slist, error)
+  if slist then
     local t = {}
-    for k,v in pairs(colors) do
-      insert(t, k .. '=' .. v)
+    for k,v in pairs(slist) do
+      insert(t, k .. '=' .. tostring(v))
     end
     table.sort(t)
-    colors = table.concat(t, ',')
+    slist = table.concat(t, ',')
   end
-  eq_pair(expected_colors, expected_error, colors, error)
+  eq_pair(expected, expected_error, slist, error)
 end
 
-eq_colors('', nil, parse_colors'')
-eq_colors('symbol=b', nil, parse_colors'symbol=b')
-eq_colors('symbol=b', nil, parse_colors'symbol=b,')
-eq_colors('symbol=c', nil, parse_colors'symbol=b,symbol=c')
-eq_colors('symbol=c', nil, parse_colors'symbol=b,symbol=c,')
-eq_colors('symbol=b,type=c', nil, parse_colors'symbol=b,type=c')
-eq_colors('symbol=b,type=c', nil, parse_colors'symbol=b,type=c,')
-eq_colors(nil, 'Unknown color: xxx, yyy', parse_colors'xxx=b,type=c,yyy=d')
-eq_colors(nil, 'Invalid format at index 7', parse_colors'xxx=b,type')
+eq_parse('', nil, parse_colors'')
+eq_parse('symbol=b', nil, parse_colors'symbol=b')
+eq_parse('symbol=b', nil, parse_colors'symbol=b,')
+eq_parse('symbol=c', nil, parse_colors'symbol=b,symbol=c')
+eq_parse('symbol=c', nil, parse_colors'symbol=b,symbol=c,')
+eq_parse('symbol=b,type=c', nil, parse_colors'symbol=b,type=c')
+eq_parse('symbol=b,type=c', nil, parse_colors'symbol=b,type=c,')
+eq_parse(nil, 'Unknown color: xxx, yyy', parse_colors'xxx=b,type=c,yyy=d')
+eq_parse(nil, 'Invalid format at index 7', parse_colors'xxx=b,type')
+
+eq_parse('', nil, parse_filter_line'')
+eq_parse('note=1', nil, parse_filter_line'note=1')
+eq_parse('note=1', nil, parse_filter_line'note=cmd,')
+eq_parse('context=2,error=0', nil, parse_filter_line'context=2,error=none')
+eq_parse('context=2,error=0', nil, parse_filter_line'context=hi,error=none,')
+eq_parse(nil, 'Unknown category: xxx, yyy', parse_filter_line'xxx=b,error=c,yyy=d')
+eq_parse(nil, 'Invalid format at index 7', parse_filter_line'xxx=b,type')
 
 
 highlight = highlighter({

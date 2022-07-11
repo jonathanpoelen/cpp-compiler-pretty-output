@@ -6,6 +6,7 @@ local insert = table.insert
 
 local lpeg = require'lpeg'
 local Cp = lpeg.Cp()
+local Cc = lpeg.Cc
 local C = lpeg.C
 local P = lpeg.P
 local R = lpeg.R
@@ -46,6 +47,7 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
   local state_line
   local state_note
   local state_color
+  local state_cat
 
   local reformat_impl = function(p1, t1, ot1, p2, t2, ot2)
     local r1 = #t1 >= expression_threshold
@@ -62,7 +64,7 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
 
     if r1 then
       out:write(line:sub(0, p1-1), reset)
-      format(t1)
+      format(t1, state_cat)
       if not r2 then
         out:write(color, line:sub(p1+#t1))
         return
@@ -71,7 +73,7 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
     else -- if r2
       out:write(line:sub(0, p2-1), reset)
     end
-    format(t2)
+    format(t2, state_cat)
     out:write(color, line:sub(p2+#t2))
   end
 
@@ -96,6 +98,13 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
     reformat_impl(p1, t1, ot1, p2, t2, ot2)
   end
 
+  local setcat = function(cat)
+    state_cat = cat
+  end
+  local cat0 = Cc(1) / setcat
+  local cat1 = Cc(2) / setcat
+  local cat2 = Cc(3) / setcat
+
   -- test.cpp:3:21: error: bla bla ('{type1}' and '{type2}')
   -- test.cpp:3:21: error: bla bla '{type1}' (to|vs) '{type2}'
   -- test.cpp:3:12: error: bla bla '{type1}' to unary expression
@@ -119,25 +128,28 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
                      * ( P((has_color and '\x1b[1m' or '') .. "redefinition of '")
                        * Until"' with " * 7
                        )
+                     * cat0
 
   local set_note = function()
     state_color = false
     state_note = true
+    state_cat = 3
   end
-  local patt_note = (has_color and note / set_note or note)
+  local patt_note = (has_color and note / set_note or note * cat2)
                   * ( P'in instantiation of ' * After"'" * typeA / reformat
                     + P'candidate constructor ('^-1 * Until(S"'(") * type2 / reformat
                     )
   if has_color then
     patt_note = note * 'candidate constructor not viable: no known conversion from \''
-                     * typeB / reformat2
+                     * cat2 * (typeB / reformat2)
               + patt_note
   end
 
   local patt = Until(note + warn + error)
              * ( patt_note
-               + redefinition * Until(S"'(") * type2 / reformat
-               + #warn * Until(S"'(") * ((type1 + type2) / reformat)
+               + redefinition * Until(S"'(") * (type2 / reformat)
+               + (P(warn) * cat1 + P(error) * cat0)
+                * Until(S"'(") * ((type1 + type2) / reformat)
                )
 
   if has_color then
@@ -158,18 +170,24 @@ end
 local function consume_formatter(out, format, expression_threshold, create_pattern)
   local state_line
   local state_pos
+  local state_cat
 
   local reformat = function(p1, t, p2)
     if #t >= expression_threshold then
       out:write(state_line:sub(state_pos, p1-1))
-      format(t)
+      format(t, state_cat)
       state_pos = p2
     end
   end
 
-  local patt = create_pattern(reformat) * (Cp / function()
-    out:write(state_line:sub(state_pos))
-  end)
+  local setcat = function(cat)
+    state_cat = cat
+  end
+
+  local patt = create_pattern(reformat, setcat)
+             * (Cp / function()
+                  out:write(state_line:sub(state_pos))
+                end)
 
   return function(line)
     state_line = line
@@ -179,7 +197,7 @@ local function consume_formatter(out, format, expression_threshold, create_patte
 end
 
 function gcc_formatter(out, format, expression_threshold, translation, has_color)
-  return consume_formatter(out, format, expression_threshold, function(reformat)
+  return consume_formatter(out, format, expression_threshold, function(reformat, setcat)
     -- test.cpp:4:12: error: no match for ‘operator+’ (operand type is ‘A<'a'>’)
     -- test.cpp:4:12: note: ‘{type1}’ is not usable as a {type2} function because:
     -- test.hpp: In instantiation of ‘{type}’:
@@ -193,17 +211,38 @@ function gcc_formatter(out, format, expression_threshold, translation, has_color
       patt = CUntil'’'
     end
 
-    local expr = After'‘' * Cp * patt * Cp / reformat
+    local prefix = has_color and '\x1b[K' or ': '
+    local note  = prefix .. translation.note    .. ': '
+    local warn  = prefix .. translation.warning .. ': '
+    local error = prefix .. translation.error   .. ': '
 
-    return -P' ' * expr^1
+    patt = ( Until(P(note) + warn + error)
+           * ( note  * Cc(3) / setcat
+             + warn  * Cc(2) / setcat
+             + error * Cc(1) / setcat
+             )
+           + Cc(4) / setcat
+           )
+           * (After'‘' * Cp * patt * Cp / reformat)^1
+
+    return -P' ' * patt
   end)
 end
 
-function msvc_formatter(out, format, expression_threshold)
-  return consume_formatter(out, format, expression_threshold, function(reformat)
+function msvc_formatter(out, format, expression_threshold, translation)
+  return consume_formatter(out, format, expression_threshold, function(reformat, setcat)
     -- test.cpp(4): error C2664: 'void foo(int)': cannot convert argument 1 from 'A<97>' to 'int'
     -- type A<'a'> is displayed as A<97>
-    return (After" '" * Cp * CUntil"'" * Cp * 1 / reformat)^1
+    local patt = After" '"
+               * ( (R('az','AZ')^1 + S'=<>!&|^~+-*%/,'^1) * "'"
+                 + Cp * CUntil"'" * Cp * 1 / reformat
+                 )
+    return After': '
+         * ( P(translation.note .. ':') * Cc(3) / setcat
+           + P(translation.warning .. ' ') * 5 * Cc(2) / setcat
+           + P(translation.error .. ' ') * 5 * Cc(1) / setcat
+           )
+         * patt^1
   end)
 end
 
@@ -285,6 +324,23 @@ end
 
 function parse_translation(str)
   return parse_key_value(str, {note=true, error=true, warning=true}, 'color')
+end
+
+function parse_filter_line(str)
+  local t, err = parse_key_value(str, {note=true, error=true, warning=true, context=true}, 'category')
+  if t then
+    for k,v in pairs(t) do
+      v = v:byte()
+      if v == 0x32 --[[2]] or v == 0x68 --[[h]] then
+        t[k] = 2
+      elseif v == 0x31 --[[1]] or v == 0x63 --[[c]] then
+        t[k] = 1
+      else
+        t[k] = 0
+      end
+    end
+  end
+  return t, err
 end
 
 function colors_list()
@@ -568,8 +624,12 @@ name are
     :action'store_false'
   parser
     :option('-t --translation', 'translation for error, warning and note. Format is word=newword,...')
-    :argname'<translation>'
+    :argname'<TRANSLATIONS>'
     :convert(parse_translation)
+  parser
+    :option('-T --filter-line', 'apply the filter only on certain lines. Format is word=value,... with word as error, warning, note or context and value are 0 / note, 1 / cmd or 2 / highlight')
+    :argname'<CATEGORIES>'
+    :convert(parse_filter_line)
 
   return parser:parse(arg)
 end
@@ -631,6 +691,14 @@ local line_threshold = args.line_threshold or (low_threshold and 30 or 120)
 local expression_threshold = args.expression_threshold or (use_highlight and 3 or 80)
 local prefix = args.prefix
 local suffix = args.suffix
+
+local filter_line = args.filter_line or {}
+filter_line = {
+  filter_line.error or 1,
+  filter_line.warning or 1,
+  filter_line.note or 1,
+  filter_line.context or 1,
+}
 
 if low_threshold or (args.highlighter_with_module and filter_type == 'module') then
   local colors = args.filter_colors
@@ -727,16 +795,27 @@ else
       has_color = args.input_type:byte(-1) == 0x72 -- r
     end
 
+    local reformat
     -- apply proccess_format or highlight
     if proccess_format ~= write_highlight and fallback_on_highlight then
-      local old_proccess_format = proccess_format
       local old_expression_threshold = expression_threshold
       expression_threshold = 0
-      proccess_format = function(str)
-        if #str >= old_expression_threshold then
-          old_proccess_format(str)
-        else
+      reformat = function(str, cat)
+        cat = filter_line[cat]
+        if cat == 1 and #str >= old_expression_threshold then
+          proccess_format(str)
+        elseif cat >= 1 then
           output:write(highlight:match(str))
+        else
+          output:write(str)
+        end
+      end
+    else
+      reformat = function(str, cat)
+        if filter_line[cat] >= 1 then
+          output:write(highlight:match(str))
+        else
+          output:write(str)
         end
       end
     end
@@ -748,7 +827,7 @@ else
       warning = translation.warning or 'warning',
     }
 
-    local process = formatter(output, proccess_format, expression_threshold,
+    local process = formatter(output, reformat, expression_threshold,
                               translation, has_color)
 
     repeat
