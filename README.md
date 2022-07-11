@@ -1,10 +1,21 @@
 Highlight output parts of C++ compilers.
 
-> clang++ test.cpp -fdiagnostics-color=always |& cpp-compiler-pretty-output.lua
+```shell-console
+$ g++ test.cpp -fdiagnostics-color=always |& cpp-compiler-pretty-output.lua
+```
 
-![output sample](./sample.png "output sample")
+![output sample](./sample1.png "output sample")
 
 An external command like `clang-format` can be configured to format very large expressions.
+
+```shell-console
+$ g++ test.cpp -fdiagnostics-color=always |& ./cpp-compiler-pretty-output.lua -c $COLUMNS 'clang-format | ./cpp-compiler-pretty-output.lua -E'
+```
+
+![output sample with clang-format](./sample2.png "output sample with clang-format")
+
+More options with `-h`/`--help` parameter.
+
 
 ## Installation
 
