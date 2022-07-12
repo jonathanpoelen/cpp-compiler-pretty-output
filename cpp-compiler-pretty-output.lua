@@ -673,10 +673,15 @@ args = {
   highlighter_with_module=true,
 }
 if #arg > 0 then
-  if arg[1]:byte() == 0x2D --[['-']] then
-    args = parse_cli(args)
-  else
+  -- fast path
+  if #arg == 1 and arg[1] == '-E' then
+    args.filter = 'highlight'
+  -- fast path
+  elseif arg[1]:byte() ~= 0x2D --[['-']] then
     args.cmd = table.concat(arg, ' ')
+  -- parse cli paramter
+  else
+    args = parse_cli(args)
   end
 end
 normalize_args(args)
