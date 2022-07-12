@@ -1,8 +1,8 @@
 package = "cpp-compiler-pretty-output"
-version = "1.0-0"
+version = "1.1-0"
 source = {
   url = "git://github.com/jonathanpoelen/cpp-compiler-pretty-output",
-  tag = "v1.0.0"
+  tag = "v1.1.0"
 }
 description = {
   summary = "Highlight output parts of C++ compilers.",
