@@ -1,4 +1,4 @@
-Highlight output parts of C++ compilers.
+Highlight output parts of C++ compilers (gcc, clang and msvc).
 
 ```shell-console
 $ g++ test.cpp -fdiagnostics-color=always |& cpp-compiler-pretty-output.lua
