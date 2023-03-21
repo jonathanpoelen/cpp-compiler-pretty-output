@@ -20,9 +20,9 @@ More options with `-h`/`--help` parameter.
 ## Installation
 
 ```bash
-luarocks install --local https://raw.githubusercontent.com/jonathanpoelen/cpp-compiler-pretty-output/master/cpp-compiler-pretty-output-1.1-0.rockspec
+luarocks install --local https://raw.githubusercontent.com/jonathanpoelen/cpp-compiler-pretty-output/master/cpp-compiler-pretty-output-1.1-1.rockspec
 
 # or in your local directory
 
-luarocks make --local cpp-compiler-pretty-output-1.1-0.rockspec
+luarocks make --local cpp-compiler-pretty-output-1.1-1.rockspec
 ```
