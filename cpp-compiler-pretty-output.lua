@@ -45,11 +45,10 @@ end
 
 function clang_formatter(out, format, expression_threshold, translation, has_color)
   local state_line
-  local state_note
   local state_color
   local state_cat
 
-  local reformat_impl = function(p1, t1, ot1, p2, t2, ot2)
+  local reformat = function(p1, t1, p2, t2)
     local r1 = #t1 >= expression_threshold
     local r2 = t2 and #t2 >= expression_threshold
 
@@ -77,25 +76,18 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
     out:write(color, line:sub(p2+#t2))
   end
 
-  local reformat = function(p1, t1, p2, t2)
-    reformat_impl(p1, t1, t1, p2, t2, t2)
-  end
-
   local diffreplacement = function(s)
     return #s ~= 4 --[[ \e[0m ]] and '/*{*/' or '/*}*/'
   end
 
   local reformat2 = function(p1, t1, p2, t2)
-    local ot1 = t1
-    local ot2 = t2
-
     -- remove color in
     -- ... no known conversion from 'Type<[...], xxx>' to 'Type<[...], yyy>'
     t1 = t1:gsub('\x1b%[[^m]*m', diffreplacement, 2)
     t2 = t2:gsub('\x1b%[[^m]*m', diffreplacement, 2)
 
     state_color = false
-    reformat_impl(p1, t1, ot1, p2, t2, ot2)
+    reformat(p1, t1, p2, t2)
   end
 
   local setcat = function(cat)
@@ -132,7 +124,6 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
 
   local set_note = function()
     state_color = false
-    state_note = true
     state_cat = 3
   end
   local patt_note = (has_color and note / set_note or note * cat2)
@@ -161,7 +152,6 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
 
   return function(line)
     state_line = line
-    state_note = false
     state_color = has_color
     return patt:match(line)
   end
