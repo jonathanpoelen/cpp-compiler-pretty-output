@@ -79,19 +79,23 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
     out:write(color, line:sub(p2+tn2))
   end
 
+  -- remove color in
+  -- ... no known conversion from 'Type<[...], xxx>' to 'Type<[...], yyy>'
+  local decolorize = lpeg.Cs((
+    P'\x1b[0;1;36m' / '/*{*/'
+  + P'\x1b[0m' * P'\x1b[1m'^-1 / '/*}*/'
+  + 1
+  )^0)
+
   local reformat2 = function(p1, t1, p2, t2)
     local tn1 = #t1
     local tn2
 
-    -- remove color in
-    -- ... no known conversion from 'Type<[...], xxx>' to 'Type<[...], yyy>'
-    t1 = t1:gsub('\x1b%[0;1;36m', '/*{*/', 2)
-    t1 = t1:gsub('\x1b%[0m\x1b%[1m', '/*}*/', 2)
+    t1 = decolorize:match(t1)
 
     if t2 then
       tn2 = #t2
-      t2 = t2:gsub('\x1b%[0;1;36m', '/*{*/', 2)
-      t2 = t2:gsub('\x1b%[0m\x1b%[1m', '/*}*/', 2)
+      t2 = decolorize:match(t2)
     end
 
     state_color = has_color or #t1 ~= tn1
