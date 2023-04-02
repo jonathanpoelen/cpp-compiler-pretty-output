@@ -605,7 +605,7 @@ Note: CPP_PRETTY_OUTPUT_FORCE_HIGHLIGH=1 variable environment force -f highlight
     :target'filter'
     :action(function(args) args.filter = 'highlight' end)
   parser
-    :option('-I --input-type', 'compiler formatter are auto, gcc, gcc-color, clang, clang-color and msvc\nDefault value is CPP_PRETTY_OUTPUT_INPUT_TYPE or auto')
+    :option('-I --input-type', 'Compiler formatter are auto, gcc, gcc-color, clang, clang-color and msvc\nDefault value is CPP_PRETTY_OUTPUT_INPUT_TYPE or auto')
     :choices{'auto', 'gcc', 'gcc-color', 'clang', 'clang-color', 'msvc'}
     :argname'<TYPE>'
   parser
@@ -623,15 +623,15 @@ name are
     :flag('-n --highlight-when-not-processed', 'Use basic C++ highlighter when reformatting is not applied (-e option)')
     :default(defaults.highlighter_with_module)
   parser
-    :flag('-N --disable-highlight-when-not-processed', 'opposite of -n')
+    :flag('-N --disable-highlight-when-not-processed', 'Opposite of -n')
     :target'highlight_when_not_processed'
     :action'store_false'
   parser
-    :option('-t --translation', 'translation for error, warning and note. Format is word=newword,...')
+    :option('-t --translation', 'Translation for error, warning and note. Format is word=newword,...')
     :argname'<TRANSLATIONS>'
     :convert(parse_translation)
   parser
-    :option('-T --filter-line', 'apply the filter only on certain lines. Format is word=value,... with word as error, warning, note or context and value are 0 / note, 1 / cmd or 2 / highlight')
+    :option('-T --filter-line', 'Apply the filter only on certain lines. Format is word=value,... with word as error, warning, note or context and value are 0 / note, 1 / cmd or 2 / highlight')
     :argname'<CATEGORIES>'
     :convert(parse_filter_line)
 
@@ -643,7 +643,7 @@ function normalize_args(args)
   if column and not (args.prefix and args.suffix) then
     local n = tonumber(column)
     if n and n > 0 then
-      local line = string.rep(args.char, n)
+      local line = args.char:rep(n)
       args.prefix = args.prefix or '\n' .. line
       args.suffix = args.suffix or line
     end
@@ -749,8 +749,9 @@ if low_threshold or (args.highlighter_with_module and filter_type == 'module') t
   }
 
   highlight = highlighter(colors)
+
   write_highlight = function(str)
-    output:write(highlight:match(str))
+    output:write(prefix, highlight:match(str), suffix)
   end
 end
 
@@ -837,7 +838,7 @@ else
         if cat == 1 and #str >= old_expression_threshold then
           proccess_format(str)
         elseif cat >= 1 then
-          output:write(highlight:match(str))
+          output:write(prefix, highlight:match(str), suffix)
         else
           output:write(str)
         end
@@ -845,7 +846,7 @@ else
     else
       reformat = function(str, cat)
         if filter_line[cat] >= 1 then
-          output:write(highlight:match(str))
+          output:write(prefix, highlight:match(str), suffix)
         else
           output:write(str)
         end
