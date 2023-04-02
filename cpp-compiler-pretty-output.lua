@@ -48,9 +48,12 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
   local state_color
   local state_cat
 
-  local reformat = function(p1, t1, p2, t2)
-    local r1 = #t1 >= expression_threshold
-    local r2 = t2 and #t2 >= expression_threshold
+  local reformat = function(p1, t1, p2, t2, tn1, tn2)
+    tn1 = tn1 or #t1
+    tn2 = tn2 or (t2 and #t2)
+
+    local r1 = tn1 >= expression_threshold
+    local r2 = t2 and tn2 >= expression_threshold
 
     if not (r1 or r2) then
       out:write(state_line)
@@ -65,29 +68,34 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
       out:write(line:sub(0, p1-1), reset)
       format(t1, state_cat)
       if not r2 then
-        out:write(color, line:sub(p1+#t1))
+        out:write(color, line:sub(p1+tn1))
         return
       end
-      out:write(color, line:sub(p1+#t1, p2-1), reset)
+      out:write(color, line:sub(p1+tn1, p2-1), reset)
     else -- if r2
       out:write(line:sub(0, p2-1), reset)
     end
     format(t2, state_cat)
-    out:write(color, line:sub(p2+#t2))
-  end
-
-  local diffreplacement = function(s)
-    return #s ~= 4 --[[ \e[0m ]] and '/*{*/' or '/*}*/'
+    out:write(color, line:sub(p2+tn2))
   end
 
   local reformat2 = function(p1, t1, p2, t2)
+    local tn1 = #t1
+    local tn2
+
     -- remove color in
     -- ... no known conversion from 'Type<[...], xxx>' to 'Type<[...], yyy>'
-    t1 = t1:gsub('\x1b%[[^m]*m', diffreplacement, 2)
-    t2 = t2:gsub('\x1b%[[^m]*m', diffreplacement, 2)
+    t1 = t1:gsub('\x1b%[0;1;36m', '/*{*/', 2)
+    t1 = t1:gsub('\x1b%[0m\x1b%[1m', '/*}*/', 2)
 
-    state_color = false
-    reformat(p1, t1, p2, t2)
+    if t2 then
+      tn2 = #t2
+      t2 = t2:gsub('\x1b%[0;1;36m', '/*{*/', 2)
+      t2 = t2:gsub('\x1b%[0m\x1b%[1m', '/*}*/', 2)
+    end
+
+    state_color = has_color or #t1 ~= tn1
+    reformat(p1, t1, p2, t2, tn1, tn2)
   end
 
   local setcat = function(cat)
@@ -140,7 +148,7 @@ function clang_formatter(out, format, expression_threshold, translation, has_col
              * ( patt_note
                + redefinition * Until(S"'(") * (type2 / reformat)
                + (P(warn) * cat1 + P(error) * cat0)
-                * Until(S"'(") * ((type1 + type2) / reformat)
+                * Until(S"'(") * ((type1 + type2) / (has_color and reformat2 or reformat2))
                )
 
   if has_color then

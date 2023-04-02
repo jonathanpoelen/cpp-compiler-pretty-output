@@ -104,6 +104,7 @@ void foo(int){}
 \e[0m\e[1mtest.cpp:1:6: \e[0m\e[0;1;30mnote: \e[0min instantiation of template class 'xx::yy<int>' requested here
     static_assert(mytype<int>);
 \e[0;1;32m                          ^
+\e[0m\e[1mtest.cpp:22:21: \e[0m\e[0;1;31merror: \e[0m\e[1mno viable conversion from 'number<\e[0;1;36m!std::is_same<na, _1>::value\e[0m\e[1m aka \e[0;1;36m1\e[0m\e[1m>' to 'number<\e[0;1;36m0\e[0m\e[1m>'\e[0m
 \e[0m5 errors generated.
 ]]
 
@@ -218,9 +219,10 @@ clang_result = convert_esc[[
 \e[0m\e[1mtest.cpp:5:14: \e[0m\e[0;1;31merror: \e[0m\e[1mredefinition of 'a' with a different type: '\e[m1{const char *}\e[1m' vs '\e[m1{A<'a'>}\e[1m'\e[0m
 \e[0m\e[1mtest.cpp:6:21: \e[0m\e[0;1;31merror: \e[0m\e[1minvalid operands to binary expression ('\e[m1{const char [1]}\e[1m' and '\e[m1{const char [1]}\e[1m')\e[0m
 \e[0m\e[1mtest.cpp:1:6: \e[0m\e[0;1;30mnote: \e[0min instantiation of template class '3{xx::yy<int>}' requested here
+\e[0m\e[1mtest.cpp:22:21: \e[0m\e[0;1;31merror: \e[0m\e[1mno viable conversion from '\e[m1{number</*{*/!std::is_same<na, _1>::value/*}*/ aka /*{*/1/*}*/>}\e[1m' to '\e[m1{number</*{*/0/*}*/>}\e[1m'\e[0m
 ]]
 eq(comp_format(clang_color, clang_formatter, true), clang_result)
-eq(comp_format(clang_nocolor, clang_formatter, false), remove_color(clang_result))
+eq(comp_format(clang_nocolor, clang_formatter, false), remove_color(clang_result:gsub('/%*[{}]%*/', '')))
 
 msvc_result = [[
 test.cpp(4): error C2440: 'initializing': cannot convert from 'int' to '1{A<97>}'
