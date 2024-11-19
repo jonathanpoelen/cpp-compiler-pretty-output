@@ -387,6 +387,7 @@ function highlighter(colors)
   local alpha = R('az','AZ')
   local alnum = R('az','AZ','09')
   local hex = R('09','af','AF')
+  local hex4 = hex * hex * hex * hex
 
   local symbols = (S'=<>!&|^~+-*%' + P'/' * -S'/*')^1
   local other_symbols = S':?.'^1
@@ -394,12 +395,20 @@ function highlighter(colors)
   local parent        = S'()'^1
   local brace         = S'{}'^1
   local sep_symbols = S',;'
-  local specialchar = P'\\x' * hex^2
-                    + P'\\0' * R'07'^0
+  local specialchar = P'\\x' * hex * hex
+                    + P'\\0' * R'07'^-2
+                    + P'\\u' * hex4
+                    + P'\\u{' * hex^1 * '}'
+                    + P'\\U' * hex4 * hex4
+                    + P'\\N{' * (alpha + ' ')^1 * '}'
+                    + P'\\o{'  * R'07' * R'07'^-2 * '}'
+                    + P'\\x{'  * hex^1 * '}'
                     + P'\\' * 1
-  local char = "'" * (specialchar + 1) * P"'"^-1
+  local char = "'" * (specialchar + 1) * P"'"
   local string = '"' * (Until(S'\\"') + (P'\\' * 1))^0 * P'"'^-1
-  local int = '0x' * tocppint(hex) + tocppint(R'09')
+  local int = '0' * S'xX' * tocppint(hex)
+            + '0' * S'bB' * tocppint(S'01')
+            + tocppint(R'09')
   local number = '0b' * tocppint(S'01')
                + P'.'^-1 * int * (P'.'^-1 * int)^-1 * (S'eE' * int)^-1
   local comment = P'/*' * Until0'*/' * P(2)^-1
