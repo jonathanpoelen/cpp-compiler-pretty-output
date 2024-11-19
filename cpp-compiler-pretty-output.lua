@@ -511,7 +511,7 @@ function highlighter(colors)
               + compute_pattern(colors['identifier'], ident)
   end
 
-  return lpeg.Cs((accu_patt + accu_patt + 1)^0)
+  return lpeg.Cs((accu_patt + 1)^0)
 end
 
 
