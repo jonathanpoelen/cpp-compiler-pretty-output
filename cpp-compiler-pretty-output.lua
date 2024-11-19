@@ -495,7 +495,7 @@ function highlighter(colors)
   push_color('keywordvalue', kw_value * -noident)
   push_color('keyword', keywords * -noident)
   push_color('keywordtype', kw_type * -noident)
-  push_color('type', type)
+  push_color('type', type * -noident)
   push_color('othertype', other_type * -noident)
   if othersymbol_color == std_color then
     push_color('std', P'std::' * ident)
