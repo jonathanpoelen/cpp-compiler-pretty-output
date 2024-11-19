@@ -235,9 +235,10 @@ function msvc_formatter(out, format, expression_threshold, translation)
   return consume_formatter(out, format, expression_threshold, function(reformat, setcat)
     -- test.cpp(4): error C2664: 'void foo(int)': cannot convert argument 1 from 'A<97>' to 'int'
     -- type A<'a'> is displayed as A<97>
+    -- test.cpp(4): note: see reference to alias template instantiation 'A<N::`anonymous-namespace'::t>' being compiled
     local patt = After" '"
                * ( (R('az','AZ')^1 + S'=<>!&|^~+-*%/,'^1) * "'"
-                 + Cp * CUntil"'" * Cp * 1 / reformat
+                 + Cp * C((P"`anonymous-namespace'" + (1-P"'"))^1) * Cp * 1 / reformat
                  )
     return After': '
          * ( P(translation.note .. ':') * Cc(3) / setcat
@@ -257,10 +258,11 @@ function select_formatter(line)
 
   if not _select_patt_cache then
     -- test.cpp(4): (msvc)
+    -- test.cpp(4,2): (msvc)
     -- or
     -- test.cpp:4:9: (clang)
     local digits = R'09'^1
-    _select_patt_cache = Until( '(' * digits * '): '
+    _select_patt_cache = Until( '(' * digits * (',' * digits)^-1 * '): '
                               + ':' * digits * ':' * digits * ': '
                               )
                               * ( P'(' * Cc(1)
