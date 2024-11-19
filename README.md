@@ -16,6 +16,12 @@ $ g++ test.cpp -fdiagnostics-color=always |& ./cpp-compiler-pretty-output.lua -c
 
 More options with `-h`/`--help` parameter.
 
+The msvc formatter is compatible with msvc-wine. Additionally the `msvc-color` script is provided to highlight file paths, line/column numbers and the words note, warning and error.
+
+```cpp
+cl ... |& cpp-compiler-pretty-output.lua | msvc-color
+```
+
 
 ## Installation
 
